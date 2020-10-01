@@ -9,12 +9,11 @@ module adau1761 (
   output        bclk,  // bit clock
   output        lrclk, // left-right clock
   output [1:0]  codec_addr,
-  // i2c interface
-
+  // mmio control
 );
 
-Axis_if #(.DWIDTH(24)) dac_sample();
-Axis_if #(.DWIDTH(24)) adc_sample();
+Axis_if #(.DWIDTH(2*24)) dac_sample(); // 48 bits for L/R
+Axis_if #(.DWIDTH(2*24)) adc_sample();
 
 i2s_serdes i2s_i (
   .clk,
