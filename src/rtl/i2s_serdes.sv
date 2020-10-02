@@ -1,7 +1,9 @@
 // i2s_serdes.sv - Reed Foster
 // i2s serializer/deserializer for ADAU1761 data interface
 
-module i2s_serdes (
+module i2s_serdes #(
+  parameter int BIT_DEPTH = 24
+)(
   input wire clk, reset,
   // i2s interface
   input         sdata_i,
@@ -20,14 +22,18 @@ always_ff @(posedge clk) begin
   lrclk_last <= lrclk;
 end
 
+localparam CLK_RATIO = 64; // 64 cycles of BCLK for each cycle of LRCLK
+
+// enabled is only set to 1 when ADAU1761 has been configured as an I2S master
+// this is signaled by the high->low edge of LRCLK
 logic enabled = 0;
-logic [4:0] bit_counter = 0; // 5 bits to count up to 32
-logic [47:0] shift_reg_in; // 48 bits to hold stereo 24-bit
-logic [47:0] shift_reg_out;
+logic [$clog2(BIT_DEPTH)-1:0] bit_counter = 0;
+logic [2*BIT_DEPTH-1:0] shift_reg_in; // store two channels per sample
+logic [2*BIT_DEPTH-1:0] shift_reg_out;
 
 // axi buffer
 logic dac_sample_ready = 1'b1;
-logic adc_sample_valid = 1'b1;
+logic adc_sample_valid = 1'b1; // first sample will be garbage, doesn't matter for audio DSP
 logic [47:0] dac_sample_data, adc_sample_data;
 
 assign dac_sample.ready = dac_sample_ready;
@@ -61,8 +67,8 @@ end
 // shifting I2S data
 always_ff @(posedge clk) begin
   if (reset) begin
-    enabled <= 1b'0;
-    bit_counter <= 1b'0;
+    enabled <= 1'b0;
+    bit_counter <= 1'b0;
   end else begin
     if (enabled) begin
       if (bclk_last == 1'b0 && bclk == 1'b1) begin
@@ -78,6 +84,8 @@ always_ff @(posedge clk) begin
           // shift out DAC data to ADAU1761
           sdata_o <= shift_reg_out[47];
           shift_reg_out <= {shift_reg_out[46:0], 1'b0};
+        end else begin
+          sdata_o <= 1'b0; // keep line low when not sending data
         end
       end
     end

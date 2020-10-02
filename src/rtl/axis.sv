@@ -1,7 +1,6 @@
 // axis.sv - Reed Foster
 // axi-stream interface
 
-
 interface Axis_If #(
   parameter DWIDTH = 32
 );
