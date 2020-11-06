@@ -6,14 +6,14 @@ module adau1761 (
   // i2s interface
   input         sdata_i,
   output        sdata_o,
-  output        bclk,  // bit clock
-  output        lrclk, // left-right clock
-  output [1:0]  codec_addr,
+  input         bclk,  // bit clock
+  input         lrclk, // left-right clock
+  output        signal_out
   // mmio control
 );
 
-Axis_if #(.DWIDTH(2*24)) dac_sample(); // 48 bits for L/R
-Axis_if #(.DWIDTH(2*24)) adc_sample();
+Axis_If #(.DWIDTH(2*24)) dac_sample(); // 48 bits for L/R
+Axis_If #(.DWIDTH(2*24)) adc_sample();
 
 i2s_serdes i2s_i (
   .clk,
@@ -22,16 +22,30 @@ i2s_serdes i2s_i (
   .sdata_o,
   .bclk,
   .lrclk,
-  .codec_addr,
   .dac_sample,
   .adc_sample
 );
 
-dsp dsp_i (
-  .clk,
-  .reset,
-  .dac_sample,
-  .adc_sample
-);
+logic [$clog2(100_000_000/500)-1:0] clock_div_count;
+logic [23:0] signal;
+assign signal_out = signal[0];
+
+assign dac_sample.data[47:24] = signal;
+assign dac_sample.data[23:0] = signal;
+assign dac_sample.valid = 1'b1;
+assign adc_sample.ready = 1'b1;
+
+always @(posedge clk) begin
+  if (reset) begin
+    clock_div_count <= '0;
+    signal <= '0;
+  end else begin
+    clock_div_count <= clock_div_count + 1'b1;
+    if (clock_div_count > 100_000_000/500) begin
+      clock_div_count <= '0;
+      signal <= ~signal;
+    end
+  end
+end
 
 endmodule

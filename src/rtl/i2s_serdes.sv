@@ -56,7 +56,6 @@ always_ff @(posedge clk) begin
     end
     if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
       // on falling edge of lrclk, we're starting a L/R sample pair
-      shift_reg_out <= dac_sample_data;
       adc_sample_data <= shift_reg_in;
       dac_sample_ready <= 1'b1;
       adc_sample_valid <= 1'b1;
@@ -92,6 +91,7 @@ always_ff @(posedge clk) begin
     if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
       enabled <= 1'b1;
       bit_counter <= '0;
+      shift_reg_out <= dac_sample_data;
     end
   end
 end
