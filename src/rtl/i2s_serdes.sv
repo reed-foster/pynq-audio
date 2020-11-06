@@ -22,8 +22,6 @@ always_ff @(posedge clk) begin
   lrclk_last <= lrclk;
 end
 
-localparam CLK_RATIO = 64; // 64 cycles of BCLK for each cycle of LRCLK
-
 // enabled is only set to 1 when ADAU1761 has been configured as an I2S master
 // this is signaled by the high->low edge of LRCLK
 logic enabled = 0;
@@ -64,6 +62,7 @@ always_ff @(posedge clk) begin
 end
 
 // shifting I2S data
+assign sdata_o = shift_reg_out[47];
 always_ff @(posedge clk) begin
   if (reset) begin
     enabled <= 1'b0;
@@ -73,24 +72,25 @@ always_ff @(posedge clk) begin
       if (bclk_last == 1'b0 && bclk == 1'b1) begin
         // on rising edge, shift serial data in
         bit_counter <= bit_counter + 1'b1;
-        if (bit_counter > 0 && bit_counter < 25) begin // for default I2S mode, wait one cycle before transferring MSB
+        if (bit_counter < 24) begin // for default I2S mode, wait one cycle before transferring MSB
           // shift in ADC data from ADAU1761
           shift_reg_in <= {shift_reg_in[46:0], sdata_i};
         end
       end else if (bclk_last == 1'b1 && bclk == 1'b0) begin
         // on falling edge, shift serial data out
-        if (bit_counter > 0 && bit_counter < 25) begin
+        if (bit_counter < 24) begin
           // shift out DAC data to ADAU1761
-          sdata_o <= shift_reg_out[47];
           shift_reg_out <= {shift_reg_out[46:0], 1'b0};
-        end else begin
-          sdata_o <= 1'b0; // keep line low when not sending data
         end
       end
     end
-    if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
-      enabled <= 1'b1;
+    if (lrclk_last == 1'b0 && lrclk == 1'b1) begin
       bit_counter <= '0;
+      shift_reg_out <= {shift_reg_out[46:0], 1'b0};
+    end
+    if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
+      bit_counter <= '0;
+      enabled <= 1'b1;
       shift_reg_out <= dac_sample_data;
     end
   end

@@ -41,8 +41,10 @@ int total_count = 0;
 
 logic enabled = 0, enabled_d = 0, enabled_dd = 0;
 logic lrclk_last = 0;
+logic bclk_last = 0;
 always_ff @(posedge clk) begin
   lrclk_last <= lrclk;
+  bclk_last <= bclk;
   enabled_dd <= enabled_d;
   if (lrclk_last & (!lrclk)) begin
     enabled <= 1'b1;
@@ -68,6 +70,27 @@ always_ff @(posedge clk) begin
   end
 end
 
+logic [6:0] count = 0;
+logic gate = 0;
+always @(posedge clk) begin
+  if (reset) begin
+    count <= '0;
+  end else begin
+    if (lrclk_last != lrclk) begin
+      count <= '0;
+    end else if (bclk_last == 1'b0 && bclk == 1'b1) begin
+      count <= count + 1'b1;
+    end
+    if (bclk_last == 1'b1 && bclk == 1'b0 && count >= 23) begin
+      gate <= 1'b0;
+    end else if (count <= 23) begin
+      gate <= 1'b1;
+    end
+  end
+end
+logic bclk_gated;
+assign bclk_gated = bclk & gate;
+
 logic sdata;
 
 i2s_serdes dut_i (
@@ -75,7 +98,7 @@ i2s_serdes dut_i (
   .reset,
   .sdata_i(sdata),
   .sdata_o(sdata),
-  .bclk,
+  .bclk(bclk_gated),
   .lrclk,
   .dac_sample,
   .adc_sample
