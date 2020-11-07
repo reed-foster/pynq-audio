@@ -15,9 +15,12 @@ always #(0.5s/BCLK_RATE_HZ) bclk = ~bclk;
 always #(0.5s/LRCLK_RATE_HZ) lrclk = ~lrclk;
 
 logic reset;
+logic enabled;
 initial begin
   reset = 1;
+  enabled = 0;
   repeat (500) @(posedge clk);
+  enabled = 1;
   reset = 0;
   dac_sample.valid = 1;
   adc_sample.ready = 1;
@@ -39,26 +42,13 @@ assign dac_sample.data = input_lfsr;
 int mismatch_count = 0;
 int total_count = 0;
 
-logic enabled = 0, enabled_d = 0, enabled_dd = 0;
-logic lrclk_last = 0;
-logic bclk_last = 0;
-always_ff @(posedge clk) begin
-  lrclk_last <= lrclk;
-  bclk_last <= bclk;
-  enabled_dd <= enabled_d;
-  if (lrclk_last & (!lrclk)) begin
-    enabled <= 1'b1;
-    enabled_d <= enabled;
-  end
-end
-
 always_ff @(posedge clk) begin
   if (!reset & enabled) begin
     if (dac_sample.ready) begin
       // send a new sample
       input_lfsr <= apply_lfsr(input_lfsr);
     end
-    if (enabled_dd & adc_sample.valid) begin // wait for one lrclk cycle before checking data
+    if (adc_sample.valid) begin
       // compare output lfsr
       if (adc_sample.data !== output_lfsr) begin
         $display("mismatched data: expected %h, got %h", output_lfsr, adc_sample.data);
@@ -70,35 +60,15 @@ always_ff @(posedge clk) begin
   end
 end
 
-logic [6:0] count = 0;
-logic gate = 0;
-always @(posedge clk) begin
-  if (reset) begin
-    count <= '0;
-  end else begin
-    if (lrclk_last != lrclk) begin
-      count <= '0;
-    end else if (bclk_last == 1'b0 && bclk == 1'b1) begin
-      count <= count + 1'b1;
-    end
-    if (bclk_last == 1'b1 && bclk == 1'b0 && count >= 23) begin
-      gate <= 1'b0;
-    end else if (count <= 23) begin
-      gate <= 1'b1;
-    end
-  end
-end
-logic bclk_gated;
-assign bclk_gated = bclk & gate;
-
 logic sdata;
 
 i2s_serdes dut_i (
   .clk,
   .reset,
+  .enabled,
   .sdata_i(sdata),
   .sdata_o(sdata),
-  .bclk(bclk_gated),
+  .bclk(bclk),
   .lrclk,
   .dac_sample,
   .adc_sample
