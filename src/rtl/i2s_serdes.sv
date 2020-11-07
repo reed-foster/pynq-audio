@@ -5,6 +5,7 @@ module i2s_serdes #(
   parameter int BIT_DEPTH = 24
 )(
   input wire clk, reset,
+  input enabled,
   // i2s interface
   input         sdata_i,
   output logic  sdata_o,
@@ -15,16 +16,25 @@ module i2s_serdes #(
   Axis_If.Master  adc_sample
 );
 
-logic bclk_last = 0;
-logic lrclk_last = 0;
+// synchronize bclk and lrclk
+logic bclk_crossed = 0;
+logic bclk_crossed_d = 0;
+logic lrclk_crossed = 0;
+logic lrclk_crossed_d = 0;
+
+logic bclk_samp = 0;
+logic lrclk_samp = 0;
 always_ff @(posedge clk) begin
-  bclk_last <= bclk; 
-  lrclk_last <= lrclk;
+  bclk_samp <= bclk;
+  bclk_crossed <= bclk_samp;
+  bclk_crossed_d <= bclk_crossed;
+  lrclk_samp <= lrclk;
+  lrclk_crossed <= lrclk_samp;
+  lrclk_crossed_d <= lrclk_crossed;
 end
 
 // enabled is only set to 1 when ADAU1761 has been configured as an I2S master
 // this is signaled by the high->low edge of LRCLK
-logic enabled = 0;
 logic [$clog2(BIT_DEPTH)-1:0] bit_counter = 0;
 logic [2*BIT_DEPTH-1:0] shift_reg_in; // store two channels per sample
 logic [2*BIT_DEPTH-1:0] shift_reg_out;
@@ -52,7 +62,7 @@ always_ff @(posedge clk) begin
     if (adc_sample.valid && adc_sample.ready) begin
       adc_sample_valid <= 1'b0;
     end
-    if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
+    if (lrclk_crossed_d == 1'b1 && lrclk_crossed == 1'b0) begin
       // on falling edge of lrclk, we're starting a L/R sample pair
       adc_sample_data <= shift_reg_in;
       dac_sample_ready <= 1'b1;
@@ -65,18 +75,17 @@ end
 assign sdata_o = shift_reg_out[47];
 always_ff @(posedge clk) begin
   if (reset) begin
-    enabled <= 1'b0;
     bit_counter <= 1'b0;
   end else begin
     if (enabled) begin
-      if (bclk_last == 1'b0 && bclk == 1'b1) begin
+      if (bclk_crossed_d == 1'b0 && bclk_crossed == 1'b1) begin
         // on rising edge, shift serial data in
         bit_counter <= bit_counter + 1'b1;
         if (bit_counter < 24) begin // for default I2S mode, wait one cycle before transferring MSB
           // shift in ADC data from ADAU1761
           shift_reg_in <= {shift_reg_in[46:0], sdata_i};
         end
-      end else if (bclk_last == 1'b1 && bclk == 1'b0) begin
+      end else if (bclk_crossed_d == 1'b1 && bclk_crossed == 1'b0) begin
         // on falling edge, shift serial data out
         if (bit_counter < 24) begin
           // shift out DAC data to ADAU1761
@@ -84,13 +93,12 @@ always_ff @(posedge clk) begin
         end
       end
     end
-    if (lrclk_last == 1'b0 && lrclk == 1'b1) begin
+    if (lrclk_crossed_d == 1'b0 && lrclk_crossed == 1'b1) begin
       bit_counter <= '0;
-      shift_reg_out <= {shift_reg_out[46:0], 1'b0};
+      //shift_reg_out <= {shift_reg_out[46:0], 1'b0};
     end
-    if (lrclk_last == 1'b1 && lrclk == 1'b0) begin
+    if (lrclk_crossed_d == 1'b1 && lrclk_crossed == 1'b0) begin
       bit_counter <= '0;
-      enabled <= 1'b1;
       shift_reg_out <= dac_sample_data;
     end
   end
