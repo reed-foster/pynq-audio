@@ -28,15 +28,17 @@ always @(posedge clk) begin
   end
 end
 
-logic [47:0] phasor = '0; // phasor is stored as 3-bit integer, 45-bit fraction
+logic [47:0] phasor = '0; // phasor is stored as 3-bit integer, 45-bit fraction (3Q45)
 always @(posedge clk) begin
   if (reset) begin
     phasor <= '0;
   end else begin
     automatic logic [47:0] next_phase = phasor + phase_factor;
     // if next phase would be greater than 1, wrap phase to -1
-    if (next_phase[47] == 0 && next_phase[46:0] > 48'h200000000000) begin
-      phasor <= 48'he00000000000; // -1 in 3Q45 (3 integer bits, 45 fractional bits)
+    // 1 in 3Q45 = 48'h2000_0000_0000
+    // -1 in 3Q45 = 48'he000_0000_0000
+    if (next_phase[47] == 0 && next_phase[46:0] > 48'h2000_0000_0000) begin
+      phasor <= 48'he000_0000_0000;
     end else begin
       phasor <= phasor + phase_factor;
     end
@@ -50,7 +52,7 @@ assign data_out.data = sin_cos_data[47:23];
 cordic_0 phase_calc (
   .aclk(clk),
   .s_axis_phase_tvalid(1'b1),
-  .s_axis_phase_tdata(phasor[47:24]), // only use upper 24 bits
+  .s_axis_phase_tdata(phasor[47:24]), // discard 24 least-significant fractional bits
   .m_axis_dout_tvalid(data_out.valid),
   .m_axis_dout_tdata(sin_cos_data)
 );
