@@ -46,7 +46,7 @@ always @(posedge clk) begin
 end
 
 logic [47:0] sin_cos_data;
-assign data_out.data = sin_cos_data[47:23];
+assign data_out.data = sin_cos_data[47:24];
 
 // calculate sin/cos of phase
 cordic_0 phase_calc (
