@@ -20,18 +20,25 @@ initial begin
   harmonicity = '0;
   mod_index = '0;
   repeat (500) @(posedge clk);
+  
+  // come out of reset
   reset = 0;
   signal_out.ready = 1;
+  
+  // set up fundamental at 512 Hz and set harmonicity and modulation index
   fundamental = {14'b00000100000000, 10'b0}; // 512 Hz
-  repeat (1_000_000) @(posedge clk); // 0.01 seconds
   harmonicity = {3'b001, 13'b0}; // harmonicity 1
-  mod_index = {7'b0100000, 9'b0}; // mod index of 64
-  repeat (1_000_000) @(posedge clk); // 0.01 seconds
-  mod_index = '1; // mod index of ~256
-  repeat (1_000_000) @(posedge clk); // 0.01 seconds
-  mod_index = {7'b0100000, 9'b0}; // mod index of 64
+  mod_index = {7'b0000100, 9'b0}; // mod index of 4
+  repeat (1_000_000) @(posedge clk); // 10 ms
+
+  // after a few periods of first signal, change modulation index
+  mod_index = {7'b0100000, 9'b0}; // mod index of 32
+  repeat (1_000_000) @(posedge clk); // 10 ms
+
+  // after a few periods, change modulation index and harmonicity
+  mod_index = {7'b0001000, 9'b0}; // mod index of 8
   harmonicity = {3'b010, 13'b0}; // harmonicity of 2
-  repeat (1_000_000) @(posedge clk); // 0.01 seconds
+  repeat (1_000_000) @(posedge clk); // 10 ms
   $finish;
 end
 

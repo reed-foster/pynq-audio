@@ -2,7 +2,6 @@
 // arbitrary frequency sinewave generator
 
 module wavetable #(
-  parameter int f_sample = 48_000,
   parameter int f_clock = 100_000_000
 )(
   input wire clk, reset,
