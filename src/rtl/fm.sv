@@ -3,9 +3,9 @@
 
 module fm (
   input wire clk, reset,
-  logic [23:0] fundamental, // 14 bit integer part, 10 bit fractional part
-  logic [15:0] harmonicity, // 3 bit integer part, 13 bit fractional part
-  logic [15:0] mod_index, // 7 bit integer part, 9 bit fractional part
+  input [23:0] fundamental, // 14 bit integer part, 10 bit fractional part
+  input [15:0] harmonicity, // 3 bit integer part, 13 bit fractional part
+  input [15:0] mod_index, // 7 bit integer part, 9 bit fractional part
   Axis_If.Master signal_out
 );
 
@@ -65,9 +65,9 @@ logic [47:0] mixed_freq;
 xbip_dsp48_macro_0 mult_mix (
   .clk,
   .A(mod_sig_unit_amp), // 0.24
-  .B(mod_depth[32:15]), // 18.3
-  .C({7'b0, fundamental, 17'b0}), // 21.27
-  .P(mixed_freq) // 21.27
+  .B(mod_depth[32:15]), // 21.0
+  .C({10'b0, fundamental, 14'b0}), // 24.24
+  .P(mixed_freq) // 24.24
 );
 
 logic [47:0] mixed_freq_abs;
@@ -75,7 +75,7 @@ always @(posedge clk) begin
   mixed_freq_abs <= mixed_freq[47] ? (~mixed_freq) + 1 : mixed_freq;
 end
 
-assign mixed_freq_axis.data = mixed_freq_abs[41:18]; // 15.9
+assign mixed_freq_axis.data = mixed_freq_abs[38:15]; // 15.9
 assign mixed_freq_axis.valid = 1'b1;
 // generate output signal at dynamical frequency mixed_freq
 wavetable mixer (
