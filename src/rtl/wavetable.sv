@@ -18,7 +18,7 @@ always @(posedge clk) begin
     phase_factor <= '0;
   end else if (freq.valid) begin
     // delta_phase_per_cyc = num_unique_phases*f_tone/f_clock
-    // there are 2**22 unique values that phasor can take on
+    // there are 2**22 unique values that a 24-bit phasor can take on
     // shift left by 46 bits to account for 2**22 unique values
     //   and add an extra 24 fractional bits
     // shift right by 9 bits to account for 9 fractional bits in
