@@ -7,9 +7,8 @@ module pitch_detect (
   Axis_If.Master pitch
 );
 
-Axis_If #(.DWIDTH(24)) buffer_out;
-
 // buffer
+Axis_If #(.DWIDTH(24)) buffer_out;
 sample_buffer buffer (
   .clk,
   .reset,
@@ -18,11 +17,27 @@ sample_buffer buffer (
 );
 
 // fft
+Axis_If #(.DWIDTH(24)) fft_bins;
 fft fft_i (
   .clk,
   .reset,
   .din(buffer_out),
-  .dout()
+  .dout(fft_bins)
 );
 
+Axis_If #(.DWIDTH(48)) fft_mag;
+always @(posedge clk) begin
+  fft_mag.data <= fft_bins.data[47:24]*fft_bins.data[47:24] + fft_bins.data[23:0]*fft_bins.data[23:0];
+  fft_mag.valid <= fft_bins.valid;
+end
+
+Axis_If #(.DWIDTH(24)) fbin_i_dout
+fundamental_bin_finder fbin_i (
+  .clk,
+  .reset,
+  .fft_mag,
+  .dout(fbin_i_dout)
+);
+   
+// phase vocoder
 endmodule

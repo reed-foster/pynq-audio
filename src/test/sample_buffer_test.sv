@@ -24,12 +24,9 @@ always @(posedge clk) begin
 end
 
 initial begin
-  reset = 1;
-  // hella janky fix to pass sim, seems to be a bug in the sample_buffer design
-  // it seems like the address increment is triggered when reset goes to 0 immediately after a posedge clk
-  // but the data increment (in the testbench) doesn't get triggered. the logic looks the same, so idk why this is happening
+  reset <= 1;
   repeat (500) @(negedge clk);
-  reset = 0;
+  reset <= 0;
   repeat (10000) @(posedge clk);
   $finish;
 end
