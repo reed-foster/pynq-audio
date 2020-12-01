@@ -114,7 +114,7 @@ always @(posedge clk) begin
           end
         end
       end
-    end else if (dout.ready) begin
+    end else if (maxk_valid) begin // only pulse maxkvalid for 1 cycle
       maxk_valid <= 1'b0;
       bin_count <= '0;
       done <= 1'b1;
@@ -122,7 +122,48 @@ always @(posedge clk) begin
   end
 end
 
-assign dout.data = {5'b0, maxk};
-assign dout.valid = maxk_valid;
+// get the maximum magnitude bin within 2 of the bin maxk
+logic [4:0] left_bin, right_bin;
+logic finding_max_mag;
+logic [47:0] max;
+logic [4:0] max_bin;
+logic max_bin_valid;
+
+assign dout.data = {5'b0, max_bin};
+assign dout.valid = max_bin_valid;
+
+always @(posedge clk) begin
+  if (reset) begin
+    left_bin  <= '0;
+    right_bin <= '0;
+    finding_max_mag <= 1'b0;
+    max <= '0;
+    max_bin_valid <= 1'b0;
+  end else begin
+    // if the peak bin is valid, start finding bin with max mag between peak-2 and peak + 2 (inclusive)
+    if (maxk_valid) begin
+      left_bin <= (maxk < 2) ? '0 : maxk - 2;
+      right_bin <= (maxk > 29) ? 5'h1f : maxk + 2;
+      finding_max_mag <= 1'b1;
+    end else if (finding_max_mag) begin
+      if (left_bin < right_bin) begin
+        left_bin <= left_bin + 1'b1;
+      end else if (left_bin == right_bin) begin
+        max_bin_valid <= 1'b1;
+      end
+      if (mag_ram[left_bin] > max) begin
+        max <= mag_ram[left_bin];
+        max_bin <= left_bin;
+      end
+    end
+    if (max_bin_valid && dout.ready) begin
+      max_bin_valid <= '0;
+      left_bin <= '0;
+      right_bin <= '0;
+      finding_max_mag <= '0;
+      max <= '0;
+    end
+  end
+end
 
 endmodule
