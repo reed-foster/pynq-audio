@@ -23,7 +23,7 @@ def amplitude_threshold(dft_mag):
 def compute_hps(dft_mag):
     product = np.zeros(dft_mag.shape)
     for k in range(2,len(dft_mag)//2):
-        product[k] = dft_mag[k]*dft_mag[2*k]
+        product[k] = dft_mag[k]*dft_mag[2*k]/(2**(k//2))
     return product
 
 def get_fundamental(dft, plot=False):
@@ -33,15 +33,18 @@ def get_fundamental(dft, plot=False):
     am_threshold = amplitude_threshold(mag[:32])
     tonalness_pk = 1/(1+np.square(peaks))**2
     tonalness_am = 1/(1+np.square(am_threshold))**2
-    salience = tonalness_am*tonalness_pk
-    salience_hps = salience*compute_hps(mag[:32])
+    salience = tonalness_pk*tonalness_am
+    salience_hps = compute_hps(mag[:32])
+    #salience_hps = salience*compute_hps(mag[:32])
     maxk = 0
     maxhps = max(salience_hps)
     maxmag = max(mag[:32])
     for k in range(len(salience_hps)):
-        if salience_hps[k] < maxhps/1024:
+        if salience_hps[k] < maxhps/512:
+        #if salience_hps[k] < maxhps/8:
             continue
-        if mag[k] > maxmag/256:
+        if mag[k] > maxmag/16:
+        #if mag[k] > maxmag/512:
             maxk = k
             break
     left = maxk-2 if maxk-2 > 0 else 0
@@ -83,7 +86,7 @@ bin_freq = np.array([k*2*pi/dft_size for k in range(dft_size)])
 
 output = np.zeros(len(signal))
 last_maxk_list = [0, 0]
-for bin in range(30,num_ffts):
+for bin in range(80,num_ffts):
     sample = signal[bin*step_size_analysis:bin*step_size_analysis+dft_size]
     dft = np.fft.fft(np.multiply(sample, window))
     mag = abs(dft)**2
