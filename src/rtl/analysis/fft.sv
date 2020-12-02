@@ -7,18 +7,20 @@ module fft (
   Axis_If.Master dout
 );
 
-// 5-bit pad, 10-bit scale schedule, 1 bit fwd/inv
-localparam logic [15:0] config_data = {5'b0, 10'b1010101011, 1'b1};
+// 3-bit pad, 20-bit scale schedule, 1 bit fwd/inv
+localparam logic [23:0] config_data = {3'b0, 20'b0101_0101_0101_0101_0110, 1'b1};
 
 logic din_tlast;
-assign din_tlast = sample_count == 10'b1111111111;
 logic [9:0] sample_count;
+assign din_tlast = sample_count == 10'b1111111111;
 
 always @(posedge clk) begin
   if (reset) begin
     sample_count <= '0;
   end else begin
-    sample_count <= sample_count + 1'b1;
+    if (din.ready && din.valid) begin
+      sample_count <= sample_count + 1'b1;
+    end
   end
 end
 

@@ -129,7 +129,7 @@ logic [47:0] max;
 logic [4:0] max_bin;
 logic max_bin_valid;
 
-assign dout.data = {5'b0, max_bin};
+assign dout.data = max_bin;
 assign dout.valid = max_bin_valid;
 
 always @(posedge clk) begin
