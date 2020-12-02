@@ -1,6 +1,9 @@
 # pynq-audio
 
-RTL and python for using the audio codec with Pynq, and some logic to demonstrate functionality
+RTL and python for using the audio codec with Pynq.
+Additional audio DSP project to demonstrate functionality:
+- Synthesis - slightly janky fixed-point FM synthesizer (still have some scaling issues; may need to change to floating point)
+- Analysis - spectral-based pitch detection. For now, uses a modified harmonic product spectrum and phase vocoder
 
 ## `src/rtl`
 
@@ -31,8 +34,9 @@ pynq python code for initializing codec with AXI_IIC ip
 
 ## `src/test`
 PRBS checker for i2s controller
-Other testbenches for other modules (most aren't automated yet)
+Testbenches for other modules (I don't think any are automated yet; I just wrote these to generate waveforms and see if the design was behaving as I expected)
 
 ## `src/model`
 some C code for experimenting with LFSR design
+would be useful to add some fixed point and bit-accurate models for the analysis modules, but I don't have enough time before this project is due.
 
