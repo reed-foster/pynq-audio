@@ -18,17 +18,18 @@ initial begin
   repeat (500) @(posedge clk);
   reset = 0;
   freq.valid = 1;
+  freq.data = 24'h020000; // 1024 Hz
   repeat (1_000_000_000) @(posedge clk); // 10 seconds
   $finish;
 end
 
-always @(posedge clk_slow) begin
-  if (reset) begin
-    freq.data = 24'b0;
-  end else begin
-    freq.data <= freq.data + 24'b1_000000000; // increase by 1Hz every 1us
-  end
-end
+//always @(posedge clk_slow) begin
+//  if (reset) begin
+//    freq.data = 24'b1_000000000;
+//  end else begin
+//    freq.data <= freq.data + (freq.data >> 9);
+//  end
+//end
 
 wavetable dut_i (
   .clk,

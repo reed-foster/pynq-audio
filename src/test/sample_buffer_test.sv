@@ -25,7 +25,7 @@ end
 
 initial begin
   reset <= 1;
-  repeat (500) @(negedge clk);
+  repeat (500) @(posedge clk);
   reset <= 0;
   repeat (10000) @(posedge clk);
   $finish;
