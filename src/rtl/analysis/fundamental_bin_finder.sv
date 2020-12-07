@@ -47,6 +47,7 @@ logic done;
 
 always @(posedge clk) begin
   if (reset) begin
+    // regs for shifting in hps and magnitude data
     mag_count     <= '0;
     hps_count     <= '0;
     mag_max       <= '0;
@@ -54,6 +55,10 @@ always @(posedge clk) begin
     mag_max_valid <= 1'b0;
     hps_max_valid <= 1'b0;
     done          <= 1'b0;
+    // regs for finding best candidate for peak
+    bin_count   <= '0;
+    maxk        <= '0;
+    maxk_valid  <= 1'b0;
   end else begin
     if (fft_mag.valid) begin
       mag_count <= mag_count + 1'b1;
@@ -89,14 +94,8 @@ always @(posedge clk) begin
       hps_max_valid <= 1'b1;
     end
   end
-end
-
-always @(posedge clk) begin
-  if (reset) begin
-    bin_count   <= '0;
-    maxk        <= '0;
-    maxk_valid  <= 1'b0;
-  end else if (!done) begin
+  // calculate max
+  if (!done) begin
     if (!maxk_valid) begin
       if (hps_max_valid && mag_max_valid) begin
         if (bin_count == 6'h1f) begin

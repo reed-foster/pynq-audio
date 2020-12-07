@@ -20,7 +20,42 @@ logic [5:0] output_count;
 logic bins_valid;
 
 logic [47:0] product;
-assign product = saved_bins_full[output_count]*saved_bins_downsampled[output_count];
+logic [42:0] upper_product, lower_product;
+logic [23:0] full_bin, downsampled_bin;
+
+assign dout.data = product;
+
+always @(posedge clk) begin
+  full_bin <= saved_bins_full[output_count];
+  downsampled_bin <= saved_bins_downsampled[output_count];
+  product <= {upper_product, 17'b0} + lower_product;
+end
+
+xbip_dsp48_macro_2 upper (
+  .clk,
+  .A({1'b0, full_bin}),
+  .B({11'b0, downsampled_bin[23:17]}),
+  .P(upper_product)
+);
+
+xbip_dsp48_macro_2 lower (
+  .clk,
+  .A({1'b0, full_bin}),
+  .B({1'b0, downsampled_bin[16:0]}),
+  .P(lower_product)
+);
+
+logic [5:0] max_valid = '0;
+logic [5:0] dout_valid = '0;
+assign max.valid = max_valid[5];
+assign dout.valid = dout_valid[5];
+integer i;
+always @(posedge clk) begin
+  for (i = 1; i < 6; i++) begin
+    max_valid[i] <= max_valid[i-1];
+    dout_valid[i] <= dout_valid[i-1];
+  end
+end
 
 always @(posedge clk) begin
   if (reset) begin
@@ -28,7 +63,7 @@ always @(posedge clk) begin
     output_count <= '0;
     bins_valid <= 1'b0;
     dout.valid <= 1'b0;
-    max.valid <= 1'b0;
+    max_valid[0] <= 1'b0;
     max.data <= '0;
   end else begin
     // save data into buffers
@@ -39,7 +74,7 @@ always @(posedge clk) begin
         output_count <= '0;
         bins_valid <= 1'b0;
         max.data <= '0;
-        max.valid <= '0;
+        max_valid[0] <= '0;
       end else begin
         input_count <= input_count + 1'b1;
         // save unmodified copy of spectrum
@@ -58,25 +93,25 @@ always @(posedge clk) begin
     end
     // buffers are ready, start calculating products
     if (dout.ready && bins_valid) begin
-      if (output_count <= 6'h1f) begin
+      if (output_count <= 6'h1f + 5) begin
         output_count <= output_count + 1'b1;
-        dout.data <= product;
-        dout.valid <= 1'b1;
+        dout_valid[0] <= 1'b1;
         if (product > max.data) begin
           max.data <= product;
         end
-        if (output_count == 6'h1f) begin
+        if (output_count == 6'h1f + 1) begin
           // max.data is now valid
-          max.valid <= 1'b1;
+          max_valid[0] <= 1'b1;
         end
-      end else begin
+      end
+      if (output_count > 6'h1f) begin
         // finished reading out all 32 products
-        dout.valid <= 1'b0;
+        dout_valid[0] <= 1'b0;
         bins_valid <= 1'b0;
       end
     end
-    if (max.valid && max.ready) begin
-      max.valid <= 1'b0;
+    if (max_valid[0] && max.ready) begin
+      max_valid[0] <= 1'b0;
     end
   end
 end

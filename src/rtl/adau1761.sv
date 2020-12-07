@@ -10,9 +10,12 @@ module adau1761 (
   input         bclk,  // bit clock
   input         lrclk, // left-right clock
   // fm controls
-  input [23:0]  fundamental,
   input [15:0]  harmonicity,
-  input [15:0]  mod_index
+  input [15:0]  mod_index,
+  // debug
+  input         dbg_capture,
+  input         dbg_next,
+  output [23:0] dbg_data
 );
 
 Axis_If #(.DWIDTH(2*24)) dac_sample(); // 48 bits for L/R
@@ -31,20 +34,48 @@ i2s_serdes i2s_i (
 );
 
 // drive with fm synth
-logic [23:0] signal;
+Axis_If #(.DWIDTH(24)) signal_out();
+Axis_If #(.DWIDTH(24)) signal_in();
+Axis_If #(.DWIDTH(24)) pitch();
 
-assign dac_sample.data[47:24] = signal;
-assign dac_sample.data[23:0] = signal;
-assign dac_sample.valid = 1'b1;
+logic [23:0] fundamental;
+
+assign pitch.ready = 1'b1;
+always @(posedge clk) begin
+  if (reset) begin
+    fundamental <= '0;
+  end else begin
+    if (pitch.valid) begin
+      fundamental <= pitch.data;
+    end
+  end
+end
+
+assign dac_sample.data[47:24] = signal_out.data;
+assign dac_sample.data[23:0] = signal_out.data;
+assign dac_sample.valid = signal_out.valid;
+
+assign signal_in.data = adc_sample.data[23:0];
+assign signal_in.valid = adc_sample.valid;
 assign adc_sample.ready = 1'b1;
 
-fm synth (
+pitch_detect pdet_0 (
+  .clk,
+  .reset,
+  .input_signal(signal_in),
+  .pitch,
+  .dbg_capture,
+  .dbg_next,
+  .dbg_data
+);
+
+fm fm_synth_0 (
   .clk,
   .reset,
   .fundamental,
   .harmonicity,
   .mod_index,
-  .signal_out(signal)
+  .signal_out
 );
 
 endmodule

@@ -4,7 +4,11 @@
 module pitch_detect (
   input wire clk, reset,
   Axis_If.Slave input_signal,
-  Axis_If.Master pitch
+  Axis_If.Master pitch,
+  // debug
+  input         dbg_capture,
+  input         dbg_next,
+  output [23:0] dbg_data
 );
 
 // buffer
@@ -58,6 +62,7 @@ always @(posedge clk) begin
 end
 
 Axis_If #(.DWIDTH(5)) fbin_i_dout ();
+assign fbin_i_dout.ready = pitch.ready;
 fundamental_bin_finder fbin_i (
   .clk,
   .reset,
@@ -89,6 +94,22 @@ logic [23:0] last_phase, current_phase;
 logic [23:0] phase_buf_0 [32]; // fundamental will only ever be in first 32 bins, so only save those
 logic [23:0] phase_buf_1 [32];
 
+logic [4:0] fbin_data;
+logic fbin_data_valid;
+always @(posedge clk) begin
+  if (reset) begin
+    fbin_data <= '0;
+    fbin_data_valid <= 1'b0;
+  end else begin
+    if (sample_count == 10'h3ff) begin
+      fbin_data_valid <= 1'b0;
+    end else if (fbin_i_dout.valid) begin
+      fbin_data <= fbin_i_dout.data;
+      fbin_data_valid <= 1'b1;
+    end
+  end
+end
+
 always @(posedge clk) begin
   if (reset) begin
     sample_count <= '0;
@@ -109,9 +130,9 @@ always @(posedge clk) begin
         phase_buf_0[sample_count] <= phase;
       end
     end
-    if (buf_valid) begin
-      last_phase <= ping_pong_sel ? phase_buf_0[fbin_i_dout.data] : phase_buf_1[fbin_i_dout.data];
-      current_phase <= ping_pong_sel ? phase_buf_1[fbin_i_dout.data] : phase_buf_0[fbin_i_dout.data];
+    if (buf_valid && fbin_data_valid) begin
+      last_phase <= ping_pong_sel ? phase_buf_0[fbin_data] : phase_buf_1[fbin_data];
+      current_phase <= ping_pong_sel ? phase_buf_1[fbin_data] : phase_buf_0[fbin_data];
     end
     if (sample_count == 10'h3ff) begin
       ping_pong_sel <= ~ping_pong_sel;
@@ -120,27 +141,47 @@ always @(posedge clk) begin
   end
 end
 
+logic [2:0] fundamental_valid;
+integer j;
+always @(posedge clk) begin
+  if (reset) begin
+    fundamental_valid <= '0;
+  end else begin
+    fundamental_valid[0] <= fbin_i_dout.valid;
+    for (j = 1; j < 3; j++) begin
+      fundamental_valid[j] <= fundamental_valid[j-1];
+    end
+  end
+end
+
 // min_n = round(last_phase_2pi - current_phase_2pi + step_size/dft_size*maxk)
 // fundamental = (current_phase_2pi - last_phase_2pi + min_n)/(step_size/f_s)
 // phase is in format 3.21
-// fbin_i_dout.data is in format 5.0
+// fbin_data is in format 5.0
 logic [26:0] min_n; // 6.21
 logic [23:0] delta_phase, neg_delta_phase; // 3.21
 assign delta_phase = last_phase - current_phase;
 assign neg_delta_phase = current_phase - last_phase;
 logic [23:0] fundamental; // 14.10
 localparam [37:0] f_ratio = 38'h2ee; // 35.3
-logic fundamental_valid [2];
 logic [5:0] min_n_rounded;
 always @(posedge clk) begin
-  fundamental_valid[0] <= buf_valid;
-  fundamental_valid[1] <= fundamental_valid[0];
-  pitch.valid <= fundamental_valid[1];
-  min_n <= ({{3{delta_phase[23]}}, delta_phase} + ({fbin_i_dout.data, 21'b0} >> 1));
+  min_n <= ({{3{delta_phase[23]}}, delta_phase} + ({fbin_data, 21'b0} >> 1));
   min_n_rounded <= min_n[20] ? min_n[26:21] + 1'b1 : min_n[26:21];
   fundamental <= (({{3{neg_delta_phase[23]}}, neg_delta_phase} + {min_n_rounded, 21'b0}) * f_ratio) >> 14;
 end
 
+assign pitch.valid = fundamental_valid[5];
 assign pitch.data = fundamental;
+
+debug #(.DWIDTH(5)) dbg_0 (
+  .clk,
+  .reset,
+  .data_in_valid(fbin_i_dout.valid),
+  .data_in(fbin_i_dout.data),
+  .data_out(dbg_data),
+  .capture(dbg_capture),
+  .next(dbg_next)
+);
 
 endmodule

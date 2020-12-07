@@ -9,7 +9,14 @@ module adau1761_wrapper (
   output        sdata_o,
   input         bclk,  // bit clock
   input         lrclk, // left-right clock
-  output [1:0]  codec_addr
+  output [1:0]  codec_addr,
+  // mmio control
+  input [15:0]  harmonicity,
+  input [15:0]  mod_index,
+  // debug
+  input         dbg_capture,
+  input         dbg_next,
+  output [23:0] dbg_data
 );
 
 assign codec_addr = 2'b11;
@@ -22,6 +29,11 @@ adau1761 device (
   .sdata_o(sdata_o),
   .bclk(bclk),
   .lrclk(lrclk),
+  .harmonicity(harmonicity),
+  .mod_index(mod_index),
+  .dbg_capture(dbg_capture),
+  .dbg_next(dbg_next),
+  .dbg_data(dbg_data)
 );
 
 endmodule

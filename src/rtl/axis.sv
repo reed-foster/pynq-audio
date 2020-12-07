@@ -20,4 +20,5 @@ modport Slave (
   input   valid,
   input   data
 );
-endinterface;
+
+endinterface
