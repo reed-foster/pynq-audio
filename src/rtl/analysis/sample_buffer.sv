@@ -5,15 +5,19 @@
 module sample_buffer (
   input wire clk, reset,
   Axis_If.Slave din,
-  Axis_If.Slave dout
+  Axis_If.Master dout
 );
 
 logic increment_read = 0;
 // blockram has two-cycle read latency
-logic increment_read_d;
+logic [4:0] out_valid_sr = '0;
+integer i;
 always @(posedge clk) begin
-  increment_read_d <= increment_read;
-  dout.valid <= increment_read_d; // delay to match bram latency
+  out_valid_sr[0] <= increment_read;
+  for (i = 1; i < 5; i++) begin
+    out_valid_sr[i] <= out_valid_sr[i-1];
+  end
+  dout.valid <= out_valid_sr[4]; // delay to match bram latency
 end
 
 logic shift_frame; // asserted for one cycle to shift read frame by 512 samples
@@ -22,9 +26,12 @@ logic [9:0] read_addr = '0;
 logic [9:0] read_addr_next;
 logic [9:0] write_addr = '0;
 logic [9:0] write_addr_next;
+logic [9:0] window_addr = '0;
+logic [9:0] window_addr_next;
 
 assign read_addr_next = read_addr + 1'b1;
 assign write_addr_next = write_addr + 1'b1;
+assign window_addr_next = window_addr + 1'b1;
 
 logic write_enable;
 assign write_enable = din.valid && din.ready;
@@ -34,6 +41,7 @@ always @(posedge clk) begin
   if (reset) begin
     read_addr <= '0;
     write_addr <= '0;
+    window_addr <= '0;
     increment_read <= 1'b0;
     shift_frame <= 1'b0;
   end else begin
@@ -55,9 +63,11 @@ always @(posedge clk) begin
         increment_read <= 1'b0;
         shift_frame <= 1'b1;
         read_addr <= read_addr_next; // increment, then shift by half-frame next cycle
+        window_addr <= window_addr_next;
       // normal behavior: update read address
       end else if (dout.ready) begin // only update when output stream is ready
         read_addr <= read_addr_next;
+        window_addr <= window_addr_next;
       end
     end
     if (shift_frame) begin
@@ -68,6 +78,7 @@ always @(posedge clk) begin
 end
 
 // 1024-point buffer memory
+logic [23:0] buffer_out;
 blk_mem_gen_0 mem (
   .clka(clk),
   .addra(write_addr),
@@ -75,7 +86,25 @@ blk_mem_gen_0 mem (
   .wea(write_enable),
   .clkb(clk),
   .addrb(read_addr),
-  .doutb(dout.data)
+  .doutb(buffer_out)
+);
+
+logic [15:0] window_data;
+
+blk_mem_gen_2 window_mem (
+  .clka(clk),
+  .addra(window_addr),
+  .douta(window_data)
+);
+
+logic [47:0] product;
+assign dout.data = product[39:16];
+xbip_dsp48_macro_0 mpy_window (
+  .clk,
+  .A(buffer_out),
+  .B({2'b0, window_data}),
+  .C('0),
+  .P(product)
 );
 
 endmodule

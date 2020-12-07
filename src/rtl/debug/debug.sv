@@ -2,12 +2,13 @@
 // low-performance janky "logic analyzer"
 
 module debug #(
-  parameter int DWIDTH = 24
+  parameter int WORDLEN = 24,
+  parameter int NUMWORDS = 2
 ) (
   input wire clk, reset,
   input data_in_valid,
-  input [DWIDTH-1:0] data_in,
-  output [DWIDTH-1:0] data_out,
+  input [NUMWORDS*WORDLEN-1:0] data_in,
+  output [NUMWORDS*WORDLEN-1:0] data_out,
   // debug control
   input capture, // trigger recording of signal on the rising edge
   input next // updates the read address on rising edge
@@ -44,14 +45,19 @@ always @(posedge clk) begin
   end
 end
 
-blk_mem_gen_1 buffer (
-  .clka(clk),
-  .clkb(clk),
-  .addra(write_addr),
-  .addrb(read_addr),
-  .dina(data_in),
-  .wea(we),
-  .doutb(data_out)
-);
-
+genvar i;
+generate
+  for (i = 0; i < NUMWORDS; i++) begin
+    blk_mem_gen_1 buffer (
+      .clka(clk),
+      .clkb(clk),
+      .addra(write_addr),
+      .addrb(read_addr),
+      .dina(data_in[WORDLEN*(i+1)-1:WORDLEN*i]),
+      .wea(we),
+      .doutb(data_out[WORDLEN*(i+1)-1:WORDLEN*i])
+    );
+  end
+endgenerate
+    
 endmodule
