@@ -8,71 +8,66 @@ module sample_buffer (
   Axis_If.Master dout
 );
 
-logic increment_read = 0;
-// blockram has two-cycle read latency
-logic [4:0] out_valid_sr = '0;
-integer i;
-always @(posedge clk) begin
-  out_valid_sr[0] <= increment_read;
-  for (i = 1; i < 5; i++) begin
-    out_valid_sr[i] <= out_valid_sr[i-1];
-  end
-  dout.valid <= out_valid_sr[4]; // delay to match bram latency
-end
+logic [9:0] read_addr, read_stop, write_addr, write_stop, window_addr;
+logic [9:0] read_next, write_next;
 
-logic shift_frame; // asserted for one cycle to shift read frame by 512 samples
+assign read_next = read_addr + 1'b1;
+assign write_next = write_addr + 1'b1;
 
-logic [9:0] read_addr = '0;
-logic [9:0] read_addr_next;
-logic [9:0] write_addr = '0;
-logic [9:0] write_addr_next;
-logic [9:0] window_addr = '0;
-logic [9:0] window_addr_next;
-
-assign read_addr_next = read_addr + 1'b1;
-assign write_addr_next = write_addr + 1'b1;
-assign window_addr_next = window_addr + 1'b1;
+logic write_ok = 1'b1; // inverted full/empty flags
+logic read_ok = 1'b0;
 
 logic write_enable;
 assign write_enable = din.valid && din.ready;
-assign din.ready = !increment_read; // if we're not incrementing read, then ready for data in
+assign din.ready = write_ok;
+
+logic [6:0] dout_valid = '0;
+integer i;
+always @(posedge clk) begin
+  for (i = 1; i < 7; i++) begin
+    dout_valid[i] <= dout_valid[i-1];
+  end
+  dout_valid[0] <= read_ok;
+end
+
+assign dout.valid = dout_valid[6];
 
 always @(posedge clk) begin
   if (reset) begin
     read_addr <= '0;
     write_addr <= '0;
     window_addr <= '0;
-    increment_read <= 1'b0;
-    shift_frame <= 1'b0;
+    read_stop <= '0;
+    write_stop <= '0;
+    write_ok <= 1'b1;
+    read_ok <= 1'b0;
   end else begin
-    // currently writing
-    if (!increment_read) begin
-      // normal behavior: update write address
-      if (write_enable) begin
-        write_addr <= write_addr_next;
-      end
-      // if we've got 1024 samples ready to read, switch to reading
-      if (write_addr_next == read_addr) begin
-        increment_read <= 1'b1;
-      end
-    end
-    // currently reading
-    else if (increment_read) begin
-      // if we've read all 1024 samples
-      if (read_addr_next == write_addr) begin
-        increment_read <= 1'b0;
-        shift_frame <= 1'b1;
-        read_addr <= read_addr_next; // increment, then shift by half-frame next cycle
-        window_addr <= window_addr_next;
-      // normal behavior: update read address
-      end else if (dout.ready) begin // only update when output stream is ready
-        read_addr <= read_addr_next;
-        window_addr <= window_addr_next;
+    if (write_enable) begin
+      if (write_ok) begin
+        write_addr <= write_addr + 1'b1;
+        if (write_next == write_stop) begin
+          write_stop <= write_next + 512;
+          write_ok <= 1'b0;
+          read_ok <= 1'b1;
+        end
       end
     end
-    if (shift_frame) begin
-      read_addr <= read_addr + 512;
-      shift_frame <= 1'b0;
+    if (dout.ready) begin
+      if (read_ok) begin
+        window_addr <= window_addr + 1'b1;
+        if (read_next == read_stop) begin
+          read_stop <= read_stop + 512;
+          read_addr <= read_stop + 512;
+          write_ok <= 1'b1;
+          read_ok <= 1'b0;
+        end else begin
+          read_addr <= read_next;
+        end
+        if (read_next == write_addr) begin
+          read_ok <= 1'b0;
+          write_ok <= 1'b1;
+        end
+      end
     end
   end
 end
@@ -83,7 +78,7 @@ blk_mem_gen_0 mem (
   .clka(clk),
   .addra(write_addr),
   .dina(din.data),
-  .wea(write_enable),
+  .wea(write_enable && write_ok),
   .clkb(clk),
   .addrb(read_addr),
   .doutb(buffer_out)
@@ -91,7 +86,7 @@ blk_mem_gen_0 mem (
 
 logic [15:0] window_data;
 
-blk_mem_gen_2 window_mem (
+blk_mem_gen_2 window_mem ( // 2 cycle latency
   .clka(clk),
   .addra(window_addr),
   .douta(window_data)
@@ -99,7 +94,7 @@ blk_mem_gen_2 window_mem (
 
 logic [47:0] product;
 assign dout.data = product[39:16];
-xbip_dsp48_macro_0 mpy_window (
+xbip_dsp48_macro_0 mpy_window ( // 4 cycle latency
   .clk,
   .A(buffer_out),
   .B({2'b0, window_data}),
