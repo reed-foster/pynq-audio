@@ -55,3 +55,5 @@ also includes a C++ model for the input buffer to verify logic for read/write co
 
 ## `util`
 `process_i2s.py` parses CSV from Saleae logic analyzer analysis of I2S protocol for capturing input signal to FPGA design
+
+See [this link](https://docs.google.com/presentation/d/1PSzpWXduxSTUllObMPEfNjsPynV2R-yphWXMbGryCsA/edit?usp=sharing) for more information on the pitch detection algorithms used(/not used) in this project.
