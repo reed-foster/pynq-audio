@@ -10,36 +10,12 @@ module adau1761 (
   input         bclk,  // bit clock
   input         lrclk, // left-right clock
   // fm controls
-  input [15:0]  harmonicity,
+  input [1:0]   harmonicity,
   input [15:0]  mod_index,
   // debug
-  input   dbg_capture_0,
-  input   dbg_next_0,
-  output [23:0] dbg_data_0,
-  input   dbg_capture_1,
-  input   dbg_next_1,
-  output [23:0] dbg_data_1,
-  input   dbg_capture_2,
-  input   dbg_next_2,
-  output [23:0] dbg_data_2,
-  input   dbg_capture_3,
-  input   dbg_next_3,
-  output [23:0] dbg_data_3,
-  input   dbg_capture_4,
-  input   dbg_next_4,
-  output [23:0] dbg_data_4,
-  input   dbg_capture_5,
-  input   dbg_next_5,
-  output [23:0] dbg_data_5,
-  input   dbg_capture_6,
-  input   dbg_next_6,
-  output [23:0] dbg_data_6,
-  input   dbg_capture_7,
-  input   dbg_next_7,
-  output [23:0] dbg_data_7,
-  input   dbg_capture_8,
-  input   dbg_next_8,
-  output [23:0] dbg_data_8
+  input         dbg_capture,
+  input         dbg_next,
+  output [23:0] dbg_data
 );
 
 Axis_If #(.DWIDTH(2*24)) dac_sample(); // 48 bits for L/R
@@ -89,40 +65,16 @@ pitch_detect pdet_0 (
   .reset,
   .input_signal(signal_in),
   .pitch,
-  .dbg_capture_0,
-  .dbg_next_0,
-  .dbg_data_0,
-  .dbg_capture_1,
-  .dbg_next_1,
-  .dbg_data_1,
-  .dbg_capture_2,
-  .dbg_next_2,
-  .dbg_data_2,
-  .dbg_capture_3,
-  .dbg_next_3,
-  .dbg_data_3,
-  .dbg_capture_4,
-  .dbg_next_4,
-  .dbg_data_4,
-  .dbg_capture_5,
-  .dbg_next_5,
-  .dbg_data_5,
-  .dbg_capture_6,
-  .dbg_next_6,
-  .dbg_data_6,
-  .dbg_capture_7,
-  .dbg_next_7,
-  .dbg_data_7,
-  .dbg_capture_8,
-  .dbg_next_8,
-  .dbg_data_8
+  .dbg_capture,
+  .dbg_next,
+  .dbg_data
 );
 
 fm fm_synth_0 (
   .clk,
   .reset,
   .fundamental,
-  .harmonicity,
+  .harmonicity({1'b0, harmonicity, 13'b0}),
   .mod_index,
   .signal_out
 );

@@ -45,27 +45,24 @@ xbip_dsp48_macro_2 lower (
   .P(lower_product)
 );
 
-logic [5:0] max_valid = '0;
-logic [5:0] dout_valid = '0;
+logic [5:0] max_valid;
+logic [5:0] dout_valid;
 assign max.valid = max_valid[5];
 assign dout.valid = dout_valid[5];
 integer i;
-always @(posedge clk) begin
-  for (i = 1; i < 6; i++) begin
-    max_valid[i] <= max_valid[i-1];
-    dout_valid[i] <= dout_valid[i-1];
-  end
-end
-
 always @(posedge clk) begin
   if (reset) begin
     input_count <= '0;
     output_count <= '0;
     bins_valid <= 1'b0;
-    dout.valid <= 1'b0;
-    max_valid[0] <= 1'b0;
+    max_valid <= '0;
+    dout_valid <= '0;
     max.data <= '0;
   end else begin
+    for (i = 1; i < 6; i++) begin
+      max_valid[i] <= max_valid[i-1];
+      dout_valid[i] <= dout_valid[i-1];
+    end
     // save data into buffers
     if (din.valid && din.ready) begin
       if (input_count == 10'h3ff) begin
@@ -110,8 +107,8 @@ always @(posedge clk) begin
         bins_valid <= 1'b0;
       end
     end
-    if (max_valid[0] && max.ready) begin
-      max_valid[0] <= 1'b0;
+    if (max_valid[5] && max.ready) begin
+      max_valid <= '0;
     end
   end
 end

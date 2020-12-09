@@ -17,7 +17,7 @@ Axis_If #(.DWIDTH(24)) hps_i_din ();
 Axis_If #(.DWIDTH(48)) hps_i_dout ();
 Axis_If #(.DWIDTH(48)) hps_i_max ();
 
-assign hps_i_din.data = fft_mag.data[35:12];
+assign hps_i_din.data = fft_mag.data[37:14];
 assign hps_i_din.valid = fft_mag.valid;
 
 harmonic_product_spectrum hps_i (
@@ -141,7 +141,7 @@ always @(posedge clk) begin
   end else begin
     // if the peak bin is valid, start finding bin with max mag between peak-2 and peak + 2 (inclusive)
     if (maxk_valid) begin
-      left_bin <= (maxk < 2) ? '0 : maxk - 2;
+      left_bin <= (maxk < 2) ? 0 : maxk - 2;
       right_bin <= (maxk > 29) ? 5'h1f : maxk + 2;
       finding_max_mag <= 1'b1;
     end else if (finding_max_mag) begin
